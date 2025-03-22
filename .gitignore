@@ -2,3 +2,7 @@ venv/
 .env
 __pycache__/
 mongo-data/
+postgres_data/
+.sh
+uploads/*
+!uploads/.gitkeep

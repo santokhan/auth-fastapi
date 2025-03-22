@@ -2,14 +2,29 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.api.v1 import root
-from app.api.v1.users import auth
 from app.utils.cors import allow_origins
+from db import create_tables
+from app.api.v1.users import auth
+from app.api.v1.users import users
+from app.api.v1 import profile
+import debugpy
+from dotenv import load_dotenv
+from os import getenv
+
+load_dotenv()
+
+DEBUG = getenv("DEBUG")
+
+if DEBUG:
+    debugpy.listen(("0.0.0.0", 5678))
+    # print("Waiting for debugger to attach...")
+    # debugpy.wait_for_client()
 
 
 def create_app():
-    app = FastAPI(
-        title="Authentication",
-    )
+    create_tables()
+
+    app = FastAPI(title="Authentication")
 
     app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -21,11 +36,12 @@ def create_app():
         allow_headers=["*"],
     )
     app.include_router(root.router)
-    app.include_router(
-        tags=["auth"],
-        prefix="/api/v1/auth",
-        router=auth.router,
-    )
+    app.include_router(prefix="/v1", router=auth.router)
+    app.include_router(prefix="/v1", router=users.router)
+    app.include_router(prefix="/v1", router=profile.router)
+
+    # Serve static files from the "uploads" folder
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
     return app
 

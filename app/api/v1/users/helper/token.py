@@ -45,9 +45,6 @@ def refresh_access_token(refresh_token: str):
 
 def decode(token: str) -> dict:
     try:
-        return jwt.decode(
-            token, SECRET_KEY, algorithms=[ALGORITHM]
-        )  # {"email": "google@gmail.com", "phone": "01718787756", "exp": 1731100667}
-
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])  # payload
     except jwt.InvalidTokenError:
         raise Exception("Invalid token.")

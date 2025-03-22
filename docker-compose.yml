@@ -1,23 +1,42 @@
-version: '3.8'
 services:
-  mongodb:
-    image: mongo:latest # Corrected image name from 'monngo' to 'mongo'
-    container_name: mongodb_container
+  redis:
+    image: redis
     ports:
-      - "27018:27017" # External port remains 27018, but internal MongoDB port must be 27017
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: 1234
-    volumes:
-      - ./mongo-data:/data/db
+      - "6379:6379"
+    networks:
+      - default
 
-  python_app:
-    build: .
-    container_name: python_container
+  postgres:
+    image: postgres:17
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=santokhan
+      - POSTGRES_PASSWORD=Santo1234
+      - POSTGRES_DB=sanbjur
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    networks:
+      - default
+
+  fastapi:
     depends_on:
-      - mongodb
+      - redis
+      - postgres
+    build:
+      context: .
+      dockerfile: Dockerfile
     volumes:
       - .:/app
-    working_dir: /app # Corrected from 'working_file' to 'working_dir'
     ports:
-      - "8002:8000"
+      - "8000:8000"
+      - "5678:5678"
+    environment:
+      - DATABASE_URL=postgresql://santokhan:Santo1234@postgres:5432/sanbjur
+      - DEBUG=True
+    networks:
+      - default
+
+networks:
+  default:
+    driver: bridge

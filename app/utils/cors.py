@@ -1,13 +1,8 @@
 http_scheme = ["http", "https"]
 
-dot_store = [
-    "ssimartbd.com",
-    "ssishopping.store",
-    "test.ssishopping.store",
-    "auth.ssishopping.store",
-]
+domains = ["sanbjur.de"]
 
-others = [
+localhost = [
     "localhost:5174",
     "localhost:5173",
     "localhost:4173",
@@ -15,11 +10,7 @@ others = [
     "localhost:3000",
 ]
 
-origins_without_scheme = [
-    "*",
-    *others,
-    *dot_store,
-]
+origins_without_scheme = [*localhost, *domains]
 
 
 def add_scheme(origins, schemes=http_scheme):
@@ -30,10 +21,4 @@ def add_scheme(origins, schemes=http_scheme):
     return array
 
 
-origins_with_scheme = [
-    "*",
-    *add_scheme(others),
-    *add_scheme(dot_store),
-]
-
-allow_origins = origins_with_scheme
+allow_origins = [*add_scheme(localhost), *add_scheme(domains)]

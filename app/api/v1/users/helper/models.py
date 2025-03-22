@@ -1,116 +1,116 @@
-from datetime import datetime
 import re
-from phonenumbers import is_valid_number, parse
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from datetime import datetime
+from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 
 
-class UserModel(BaseModel):
+class UserBase(BaseModel):
     username: Optional[str] = None
     name: Optional[str] = None
     email: Optional[EmailStr] = None
-    phone: Optional[str] = Field(
-        default=None, min_length=11, max_length=11
-    )  # Store as a string for initial input
-    password: str
+    phone: Optional[str] = None
+    role: Optional[str] = None
 
-    def validate_phone_number(self):
-        if self.phone:  # validate only if user inputed
-            try:
-                parsed_number = parse(self.phone, "BD")
-                if is_valid_number(parsed_number):
-                    return parsed_number
-                else:
-                    raise ValueError("Invalid phone number")
-            except Exception:
-                raise ValueError("Invalid phone number format")
-        return None
+    last_login: Optional[datetime] = None
+
+
+class UserCreate(BaseModel):
+    username: Optional[str] = Field(default="admin")
+    name: Optional[str] = Field(default="Admin")
+    email: Optional[EmailStr] = Field(default="inbox.santo@gmail.com")
+    phone: Optional[str] = Field(default="0162260365")
+    password: str = Field(default="Admin1234")
+    role: Optional[str] = Field(default="user")
+
+    # def validate_phone_number(self):
+    #     if self.phone:  # validate only if user inputed
+    #         try:
+    #             parsed_number = parse(self.phone, "DE")
+    #             if is_valid_number(parsed_number):
+    #                 return parsed_number
+    #             else:
+    #                 raise ValueError("Invalid phone number")
+    #         except Exception:
+    #             raise ValueError("Invalid phone number format")
+    #     return None
 
     def trim(self):
-        return self.phone.strip()[-11:]
+        return self.phone.strip()[-9:]
 
     def validate_password(self):
-        if self.password:  # validate only if user inputed
+        if self.password:
             errors = []
 
-            if len(self.password) < 6:
-                errors.append("must be at least 6 characters long.")
+            length = 6
+            if len(self.password) < length:
+                errors.append(f"Password must be at least {length} characters long.")
             if not re.search(r"[a-zA-Z]", self.password):
-                errors.append("must contain at least one letter.")
+                errors.append("Password must contain at least one letter.")
             if not re.search(r"[0-9]", self.password):
-                errors.append("must contain at least one number.")
+                errors.append("Password must contain at least one number.")
 
             if errors:
-                raise ValueError("Invalid password: " + " ".join(errors))
-
-        return "Valid password"
+                raise ValueError(" ".join(errors))
 
 
-class UserResponse(BaseModel):
-    id: str
-    username: Optional[str] = None
-    name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
+class UserSignIn(BaseModel):
+    username: Optional[str] = Field(default="admin")
+    email: Optional[EmailStr] = Field(default="inbox.santo@gmail.com")
+    phone: Optional[str] = Field(default="0162260365")
+    password: str = Field(default="Admin1234")
+
+
+class UserOut(UserBase):
+    id: int
     verified: Optional[bool] = False
     created_at: datetime
     updated_at: datetime
 
-    # Model validator to check that at least one of email or phone is provided
-    @model_validator(mode="before")
-    def check_email_or_phone(cls, values):
-        email = values.get("email")
-        phone = values.get("phone")
-
-        if not email and not phone:
-            raise ValueError('At least one of "email" or "phone" must be provided.')
-
-        return values
+    class Config:
+        from_attributes = True
 
 
-class UsersResponse(BaseModel):
-    list: List[UserResponse] = Field(default_factory=list)
+class UsersOut(BaseModel):
+    list: List[UserOut] = Field(default_factory=list)
     count: int = Field(default_factory=int)
 
 
 class ForgotModel(BaseModel):
     email: Optional[EmailStr] = Field(default=None)
     username: Optional[str] = Field(default=None)
-    phone: Optional[str] = Field(
-        default=None, min_length=11, max_length=11
-    )  # Store as a string for initial input
+    phone: Optional[str] = Field(default=None, min_length=9, max_length=9)
     callback: Optional[str] = Field(
         default=None, detail="Reset form URL that client will send in body."
     )
 
-    def validate_phone_number(self):
-        if self.phone:  # validate only if user inputed
-            try:
-                parsed_number = parse(self.phone, "BD")
-                if is_valid_number(parsed_number):
-                    return parsed_number
-                else:
-                    raise ValueError("Invalid phone number")
-            except Exception:
-                raise ValueError("Invalid phone number format")
-        return None
+    # def validate_phone_number(self):
+    #     if self.phone:  # validate only if user inputed
+    #         try:
+    #             parsed_number = parse(self.phone, "BD")
+    #             if is_valid_number(parsed_number):
+    #                 return parsed_number
+    #             else:
+    #                 raise ValueError("Invalid phone number")
+    #         except Exception:
+    #             raise ValueError("Invalid phone number format")
+    #     return None
 
 
 class ResetModel(BaseModel):
     password: str = Field(default=None)
     token: str = Field(default=None, description="Token including user object.")
 
-    def validate_phone_number(self):
-        if self.phone:  # validate only if user inputed
-            try:
-                parsed_number = parse(self.phone, "BD")
-                if is_valid_number(parsed_number):
-                    return parsed_number
-                else:
-                    raise ValueError("Invalid phone number")
-            except Exception:
-                raise ValueError("Invalid phone number format")
-        return None
+    # def validate_phone_number(self):
+    #     if self.phone:  # validate only if user inputed
+    #         try:
+    #             parsed_number = parse(self.phone, "BD")
+    #             if is_valid_number(parsed_number):
+    #                 return parsed_number
+    #             else:
+    #                 raise ValueError("Invalid phone number")
+    #         except Exception:
+    #             raise ValueError("Invalid phone number format")
+    #     return None
 
 
 class TokenInputModel(BaseModel):
