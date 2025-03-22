@@ -1,11 +1,15 @@
 services:
   redis:
     image: redis
+    ports:
+      - "6379:6379"
     networks:
       - default
 
   postgres:
     image: postgres:17
+    ports:
+      - "5432:5432"
     environment:
       - POSTGRES_USER=santokhan
       - POSTGRES_PASSWORD=Santo1234
@@ -25,9 +29,11 @@ services:
     volumes:
       - .:/app
     ports:
-      - "8013:8000"
+      - "8003:8000"
+      - "5678:5678"
     environment:
       - DATABASE_URL=postgresql://santokhan:Santo1234@postgres:5432/sanbjur
+      - DEBUG=True
     networks:
       - default
 
