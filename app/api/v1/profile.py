@@ -3,12 +3,12 @@ from shutil import copyfileobj
 from os import makedirs, path
 import uuid
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from requests import Session
 from app.api.v1.users.helper.bearer import get_bearer_token
 from db import get_db
 from models import Users
 from fastapi import Depends
 from app.api.v1.users.helper.token import decode
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -41,7 +41,7 @@ async def upload_profile_image(
             copyfileobj(image.file, f)
 
         # Update the user's image path in the database
-        db.query(Users).filter(Users.id == payload["id"]).update({"image": file_path})
+        db.query(Users).filter(Users.id == payload["id"]).update({"image": filename})
         db.commit()
 
         return {"filename": filename}
