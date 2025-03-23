@@ -1,11 +1,11 @@
 import requests
 import json
 
-API_URL = "http://127.0.0.1:3005/"
+API_URL = "http://127.0.0.1:8003"
 
 
 def path_builder(endpoint: str):
-    return API_URL + "api/v1/" + endpoint
+    return API_URL + "/v1" + endpoint
 
 
 def print_request_info(url, data):
@@ -23,7 +23,7 @@ def print_request_info(url, data):
 
 def signup(data: dict):
     try:
-        url = path_builder("users/register")
+        url = path_builder("/signup")
         res = requests.post(url, json=data)
         data = res.json()
         print("users added")
@@ -35,7 +35,7 @@ def signup(data: dict):
 
 def signin(data: dict):
     try:
-        url = path_builder("users/login")
+        url = path_builder("/signin")
         res = requests.post(url, json=data)
         data = res.json()
         print("users login")
@@ -47,7 +47,7 @@ def signin(data: dict):
 
 def token(data: dict):
     try:
-        url = path_builder("users/token")
+        url = path_builder("/token")
         res = requests.post(url, json=data)
         data = res.json()
         print("refresh access token")
@@ -59,7 +59,7 @@ def token(data: dict):
 
 def forgot(data: dict):
     try:
-        url = path_builder("users/forgot")
+        url = path_builder("/forgot")
         res = requests.post(url, json=data)
         print(res.headers)
         if res.is_redirect:
@@ -72,12 +72,26 @@ def forgot(data: dict):
         print(identifier)
 
 
-creadentials = {"phone": "01307230077", "password": "santo@1234"}
-creadentials = {"email": "inbox.santo@hotmail.com", "password": "santo@1234"}
+def delete(id: int):
+    url = path_builder(f"/users/{id}")
+    res = requests.delete(url, json=data)
+    data = res.json()
+    print_request_info(url, data)
+    return data
+
+
+creadentials = {
+    "username": "santo",
+    "name": "Santo",
+    "email": "inbox.santo@hotmail.com",
+    "password": "Santo1234",
+}
 forgot_creadentials = {"email": "inbox.santo@hotmail.com"}
 reset_creadentials = {"email": "inbox.santo@hotmail.com", "password": "santo@1234"}
 
-# signup(creadentials)
-# user = signin(creadentials)
+
+signup(creadentials)
+user = signin(creadentials)
 # token(user)
-forgot(forgot_creadentials)
+# forgot(forgot_creadentials)
+# delete(user["id"])

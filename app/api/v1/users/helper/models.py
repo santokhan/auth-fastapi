@@ -15,12 +15,12 @@ class UserBase(BaseModel):
 
 
 class UserCreate(BaseModel):
-    username: Optional[str] = Field(default="admin")
-    name: Optional[str] = Field(default="Admin")
-    email: Optional[EmailStr] = Field(default="inbox.santo@gmail.com")
-    phone: Optional[str] = Field(default="0162260365")
-    password: str = Field(default="Admin1234")
-    role: Optional[str] = Field(default="user")
+    username: Optional[str] = Field(default=None)
+    name: Optional[str] = Field(default=None)
+    email: Optional[EmailStr] = Field(default=None)
+    phone: Optional[str] = Field(default=None)
+    password: str = Field(default=None)
+    role: Optional[str] = Field(default=None)
 
     # def validate_phone_number(self):
     #     if self.phone:  # validate only if user inputed
@@ -54,10 +54,10 @@ class UserCreate(BaseModel):
 
 
 class UserSignIn(BaseModel):
-    username: Optional[str] = Field(default="admin")
-    email: Optional[EmailStr] = Field(default="inbox.santo@gmail.com")
-    phone: Optional[str] = Field(default="0162260365")
-    password: str = Field(default="Admin1234")
+    username: Optional[str] = Field(default=None)
+    email: Optional[EmailStr] = Field(default=None)
+    phone: Optional[str] = Field(default=None)
+    password: str = Field(default=None)
 
 
 class UserOut(UserBase):
@@ -68,6 +68,8 @@ class UserOut(UserBase):
 
     class Config:
         from_attributes = True
+        json_encoders = {datetime: lambda v: v.isoformat()}
+
 
 
 class UsersOut(BaseModel):

@@ -59,43 +59,47 @@ async def register(user: UserCreate, db: Session = Depends(get_db)) -> UserOut:
 
 @router.post("/signin")
 async def login(
-    user: UserSignIn,
+    input: UserSignIn,
     db: Session = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ) -> TokenResponse:
     try:
-        db_user = (
-            db.query(Users)
-            .where(
-                Users.email == user.email
-                or Users.phone == user.phone
-                or Users.username == user.username
-            )
-            .first()
-        )
+        query = db.query(Users)
 
-        if db_user is None:
+        if input.email:
+            query = query.where(Users.email == input.email)
+        elif input.phone:
+            query = query.where(Users.phone == input.phone)
+        elif input.username:
+            query = query.where(Users.username == input.username)
+        else:
+            raise HTTPException(
+                status_code=400, detail="Email, phone, or username is required"
+            )
+
+        user = query.first()
+
+        if user is None:
             raise HTTPException(status_code=404, detail="User not found")
 
-        verify_hash(hash=db_user.password, user_password=user.password)
+        verify_hash(hash=user.password, user_password=input.password)
 
         payload = {
-            "id": db_user.id,
-            "username": db_user.username,
-            "name": db_user.name,
-            "verified": db_user.verified,
-            "role": db_user.role,
-            "last_login": db_user.last_login,
-            "created_at": str(db_user.created_at),
-            "updated_at": str(db_user.updated_at),
+            "id": user.id,
+            "username": user.username,
+            "name": user.name,
+            "phone": user.phone,
+            "email": user.email,
+            "verified": user.verified,
+            "role": user.role,
+            "last_login": user.last_login,
+            "created_at": str(user.created_at),
+            "updated_at": str(user.updated_at),
         }
-
         access_token = create_access_token(data=payload)
         refresh_token = create_refresh_token(data=payload)
 
-        await redis.setex(
-            f"refresh_token:{db_user.id}", 60 * 60 * 24 * 7, refresh_token
-        )
+        await redis.setex(f"refresh_token:{user.id}", 60 * 60 * 24 * 7, refresh_token)
 
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
 

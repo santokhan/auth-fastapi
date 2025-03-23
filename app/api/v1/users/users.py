@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 from models import Users
 from db import get_redis
 from aioredis.client import Redis
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import (
+    HTTPBearer,
+    HTTPAuthorizationCredentials,
+)
 from app.api.v1.users.helper.bearer import get_bearer_token
 from json import dumps
 from .helper.token import decode
@@ -13,9 +16,11 @@ from .helper.token import decode
 router = APIRouter(tags=["users"])
 
 
-@router.get("/users")
+@router.get("/users", description="Only admin can access this route")
 async def get_users(
-    db: Session = Depends(get_db), redis: Redis = Depends(get_redis)
+    # header=Depends(HTTPBearer()),
+    db: Session = Depends(get_db),
+    redis: Redis = Depends(get_redis),
 ) -> UsersOut:
     try:
         users = db.query(Users).all()
@@ -42,7 +47,11 @@ async def get_users(
 
 
 @router.get("/users/{user_id}")
-async def get_user(user_id: int, db: Session = Depends(get_db)) -> UserOut:
+async def get_user(
+    user_id: int,
+    header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+    db: Session = Depends(get_db),
+) -> UserOut:
     try:
         user = db.query(Users).filter(Users.id == user_id).first()
 
