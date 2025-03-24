@@ -62,8 +62,10 @@ async def get_users(
                     email=user.email,
                     phone=user.phone,
                     name=user.name,
+                    image=user.image,
                     verified=user.verified,
                     role=user.role,
+                    status=user.status,
                     last_login=user.last_login,
                     created_at=user.created_at,
                     updated_at=user.updated_at,
@@ -71,11 +73,16 @@ async def get_users(
             )
 
         return UsersOut(list=filtered, count=len(users))
+    
     except Exception as e:
         raise HTTPException(400, str(e))
 
 
-@router.get("/users/{user_id}", tags=["admin"])
+@router.get(
+    "/users/{user_id}",
+    tags=["admin"],
+    description="Only super-admin can access this route",
+)
 async def get_user(
     user_id: int,
     header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
@@ -92,8 +99,10 @@ async def get_user(
             id=user.id,
             username=user.username,
             name=user.name,
+            image=user.image,
             verified=user.verified,
             role=user.role,
+            status=user.status,
             last_login=user.last_login,
             created_at=user.created_at,
             updated_at=user.updated_at,
@@ -101,6 +110,20 @@ async def get_user(
 
     except Exception as e:
         raise HTTPException(400, str(e))
+
+
+@router.patch("/users/{id}/disable", tags=["admin"])
+async def delete(id: str = Path(...), db: Session = Depends(get_db)):
+    try:
+        user = db.query(Users).where(Users.id == id).first()
+
+        user.status = "disaled"
+
+        db.commit()
+
+        return {"message": "User deleted successfully."}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.patch("/online", tags=["user"])

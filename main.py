@@ -31,7 +31,6 @@ def create_app():
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.include_router(root.router)
     app.include_router(prefix="/v1", router=auth.router)
     app.include_router(prefix="/v1", router=users.router)
     app.include_router(prefix="/v1", router=profile.router)

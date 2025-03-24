@@ -6,12 +6,15 @@ from typing import List, Optional
 
 class UserBase(BaseModel):
     username: Optional[str] = None
-    name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
-    role: Optional[str] = None
 
+    name: Optional[str] = None
+    role: Optional[str] = None
+    status: Optional[str] = None
     last_login: Optional[datetime] = None
+
+    image: Optional[str] = None
 
 
 class UserCreate(BaseModel):
@@ -31,7 +34,7 @@ class UserCreate(BaseModel):
     #         except Exception:
     #             raise ValueError("Invalid phone number format")
     #     return None
-    
+
     def validate_username(self):
         if self.username:
             if len(self.username) < 3:

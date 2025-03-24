@@ -16,6 +16,7 @@ class Users(Base):
     role = Column(String(50), default="user")
     image = Column(String(255), nullable=True)
     verified = Column(Boolean, default=False)
+    status = Column(String(50))
 
     last_login = Column(DateTime)
 

@@ -10,7 +10,7 @@ from db import get_redis
 from aioredis.client import Redis
 from schemas.user import (
     ForgotModel,
-    # ResetModel,
+    ResetModel,
     UserCreate,
     UserOut,
     UserSignIn,
@@ -132,6 +132,8 @@ async def token(
                 "username": user.username,
                 "name": user.name,
                 "phone": user.phone,
+                "image": user.image,
+                "status": user.status,
                 "email": user.email,
                 "verified": user.verified,
                 "role": user.role,
@@ -178,26 +180,25 @@ async def forgot(
     redis: Redis = Depends(get_redis),
 ):
     try:
-        if not (input.email or input.username or input.phone):
+        if not (input.email or input.phone):
             raise HTTPException(400, "Email, Username or Phone is required.")
 
-        db_user = (
-            db.query(Users)
-            .filter(
-                Users.email == input.email
-                or Users.username == input.username
-                or Users.phone == input.phone
-            )
-            .first()
-        )
+        query = db.query(Users)
 
-        if db_user is None:
+        if input.email:
+            query = query.filter(Users.email == input.email)
+        if input.phone:
+            query = query.filter(Users.phone == input.phone)
+
+        user = query.first()
+
+        if user is None:
             raise HTTPException(400, "User not found")
 
-        reset_token = create_access_token({"id": db_user.id})
+        reset_token = create_access_token({"id": user.id})
 
         # Store the reset token in Redis for 10 minutes
-        await redis.setex(f"reset_token:{db_user.id}", 60 * 10, reset_token)
+        await redis.setex(f"reset_token:{user.id}", 60 * 10, reset_token)
 
         full_url = f"{request.url.scheme}://{request.url.netloc}"
         params = {"token": reset_token, "redirect": referer}
@@ -209,14 +210,15 @@ async def forgot(
             url_with_token = f"{full_url}/api/v1/users/reset?{query_string}"
 
         # Send reset link via SMS or Email
-        if db_user.email:
+        if user.email:
             try:
                 await send_email(reset_link=url_with_token, to_email=input.email)
+                print(f"Sent to {user.email}")
             except Exception as e:
                 raise HTTPException(
                     status_code=500, detail=f"Email service error: {str(e)}"
                 )
-        elif db_user.phone:
+        elif user.phone:
             try:
                 await sms.sms_sender(
                     message=f"SSI Mart \nTo reset your password, click the link: {url_with_token}",
@@ -230,58 +232,37 @@ async def forgot(
         return {"message": "Password reset link has been sent."}
 
     except HTTPException as e:
-        raise e  # Re-raise the HTTPException as it is
+        raise e
+
     except Exception as e:
-        print(e)
-        raise HTTPException(status_code=400, detail=f"Unexpected error: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-# @router.get("/reset", response_class=HTMLResponse)
-# async def reset_form(token: str = Query(...)):
-#     with open("static/reset.html", "r", encoding="utf-8") as file:
-#         html_content = file.read()
-#         if html_content:
-#             return html_content
+from fastapi import HTTPException, Depends
+from sqlalchemy.orm import Session
+from sqlalchemy.exc import SQLAlchemyError
 
 
-# @router.post("/reset")
-# async def reset(reset_model: ResetModel):
-#     try:
-#         if reset_model.token is None or reset_model.password is None:
-#             raise HTTPException(
-#                 status_code=400, detail="Token and Password are required."
-#             )
+@router.patch("/reset")
+async def reset(reset_model: ResetModel, db: Session = Depends(get_db)):
+    try:
+        payload = decode(reset_model.token)
 
-#         decoded_user = decode(reset_model.token)
+        # Update the user's password in the database
+        user = db.query(Users).filter(Users.id == payload.get("id")).first()
 
-#         id = decoded_user.get("id", None)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
 
-#         filter = {}
-#         if id is not None:
-#             filter["_id"] = ObjectId(id)
+        # Update the password
+        user.password = make_hash(reset_model.password)
+        db.commit()  # Commit the transaction
 
-#         password = make_hash(reset_model.password)
+        return {"message": "Password reset successful."}
 
-#         updated = await collection.update_one(filter, {"$set": {"password": password}})
+    except SQLAlchemyError as e:
+        db.rollback()  # Rollback in case of database error
+        raise HTTPException(status_code=500, detail="Database error")
 
-#         if updated is None:
-#             raise HTTPException(
-#                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Reset failed."
-#             )
-
-#         return {"message": "Password reset successful."}
-
-#     except Exception as e:
-#         raise HTTPException(status_code=400, detail=str(e))
-
-
-# @router.delete("/{id}")
-# async def delete(id: str = Path(...), db: Session = Depends(get_db)):
-#     try:
-#         db.query(Users).filter(Users.id == id).delete()
-
-#         db.commit()
-
-#         return {"message": "User deleted successfully."}
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
