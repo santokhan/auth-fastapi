@@ -16,7 +16,7 @@ def generate_filename(filename: str):
     return f"{uuid.uuid4().hex}{path.splitext(filename)[1]}"
 
 
-@router.post("/upload", tags=["profile"])
+@router.patch("/upload", tags=["profile"])
 async def upload_profile_image(
     image: UploadFile = File(...),
     header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),

@@ -10,11 +10,13 @@ from json import dumps
 from .helper.token import decode
 from sqlalchemy.exc import SQLAlchemyError
 
-router = APIRouter(tags=["users"])
+router = APIRouter()
 
 
-@router.get(
-    "/make_admin/{user_id}", description="Only super-admin can access this route"
+@router.patch(
+    "/make_admin/{user_id}",
+    tags=["admin"],
+    description="Only super-admin can access this route",
 )
 async def make_admin(
     user_id: int,
@@ -22,10 +24,13 @@ async def make_admin(
     db: Session = Depends(get_db),
 ):
     try:
-        payload = decode(header)
+        payload = decode(header.credentials)
         role_guard(payload.get("role"), ["super-admin", "admin"])
 
         db.query(Users).where(Users.id == user_id).update({"role": "admin"})
+        db.commit()
+
+        return {"message": "User role updated successfully."}
 
     except SQLAlchemyError as e:
         db.rollback()  # Ensure rollback on any other database-related error
@@ -35,7 +40,7 @@ async def make_admin(
         raise HTTPException(400, str(e))
 
 
-@router.get("/users", description="Only admin can access this route")
+@router.get("/users", tags=["admin"], description="Only admin can access this route")
 async def get_users(
     header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: Session = Depends(get_db),
@@ -70,7 +75,7 @@ async def get_users(
         raise HTTPException(400, str(e))
 
 
-@router.get("/users/{user_id}")
+@router.get("/users/{user_id}", tags=["admin"])
 async def get_user(
     user_id: int,
     header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
@@ -98,7 +103,7 @@ async def get_user(
         raise HTTPException(400, str(e))
 
 
-@router.patch("/online")
+@router.patch("/online", tags=["user"])
 async def active(
     header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     redis: Redis = Depends(get_redis),
@@ -115,7 +120,7 @@ async def active(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/{user_id}/online")
+@router.get("/{user_id}/online", tags=["user"])
 async def active(user_id: int = Path(...), redis: Redis = Depends(get_redis)):
     try:
         online = await redis.exists(f"online:{user_id}")
