@@ -1,20 +1,38 @@
 from fastapi import Depends, HTTPException, APIRouter, Path
-from db import get_db
+from db import get_db, get_redis
+from lib.role_guard import role_guard
 from schemas.user import UserOut, UsersOut
 from sqlalchemy.orm import Session
 from models import Users
-from db import get_redis
 from aioredis.client import Redis
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from json import dumps
 from .helper.token import decode
+from sqlalchemy.exc import SQLAlchemyError
 
 router = APIRouter(tags=["users"])
 
 
-def role_guard(role, allowed_roles: list[str]):
-    if role not in allowed_roles:
-        raise HTTPException(403, "You are not authorized to access this route")
+@router.get(
+    "/make_admin/{user_id}", description="Only super-admin can access this route"
+)
+async def make_admin(
+    user_id: int,
+    header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
+    db: Session = Depends(get_db),
+):
+    try:
+        payload = decode(header)
+        role_guard(payload.get("role"), ["super-admin", "admin"])
+
+        db.query(Users).where(Users.id == user_id).update({"role": "admin"})
+
+    except SQLAlchemyError as e:
+        db.rollback()  # Ensure rollback on any other database-related error
+        raise HTTPException(500, "Database error occurred.")
+
+    except Exception as e:
+        raise HTTPException(400, str(e))
 
 
 @router.get("/users", description="Only admin can access this route")
