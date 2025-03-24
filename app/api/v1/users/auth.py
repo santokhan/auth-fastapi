@@ -5,11 +5,9 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.api.v1 import sms
 from db import get_db
 from app.services.mail.sender import send_email, send_email_verification
-from .helper.bearer import get_bearer_token
 from .helper.hash import verify_hash, make_hash
 from db import get_redis
 from aioredis.client import Redis
-from schemas.token import TokenResponse
 from schemas.user import (
     ForgotModel,
     # ResetModel,
@@ -159,9 +157,7 @@ async def logout(
     redis: Redis = Depends(get_redis),
 ):
     try:
-        access_token = get_bearer_token(header)
-
-        payload = decode(access_token)
+        payload = decode(header.credentials)
 
         key = f"refresh_token:{payload.get('id')}"
 

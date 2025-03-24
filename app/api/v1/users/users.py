@@ -5,23 +5,27 @@ from sqlalchemy.orm import Session
 from models import Users
 from db import get_redis
 from aioredis.client import Redis
-from fastapi.security import (
-    HTTPBearer,
-    HTTPAuthorizationCredentials,
-)
-from app.api.v1.users.helper.bearer import get_bearer_token
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from json import dumps
 from .helper.token import decode
 
 router = APIRouter(tags=["users"])
 
 
+def role_guard(role, allowed_roles: list[str]):
+    if role not in allowed_roles:
+        raise HTTPException(403, "You are not authorized to access this route")
+
+
 @router.get("/users", description="Only admin can access this route")
 async def get_users(
-    # header=Depends(HTTPBearer()),
+    header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: Session = Depends(get_db),
-    redis: Redis = Depends(get_redis),
 ) -> UsersOut:
+    # check if user is admin
+    payload = decode(header.credentials)
+    role_guard(payload.get("role"), ["admin"])
+
     try:
         users = db.query(Users).all()
 
@@ -32,6 +36,8 @@ async def get_users(
                 UserOut(
                     id=user.id,
                     username=user.username,
+                    email=user.email,
+                    phone=user.phone,
                     name=user.name,
                     verified=user.verified,
                     role=user.role,
@@ -52,6 +58,10 @@ async def get_user(
     header: HTTPAuthorizationCredentials = Depends(HTTPBearer()),
     db: Session = Depends(get_db),
 ) -> UserOut:
+    # check if user is admin
+    payload = decode(header.credentials)
+    role_guard(payload.get("role"), ["admin"])
+
     try:
         user = db.query(Users).filter(Users.id == user_id).first()
 
@@ -76,11 +86,9 @@ async def active(
     redis: Redis = Depends(get_redis),
 ):
     try:
-        access_token = get_bearer_token(header)
+        payload = decode(header.credentials)
 
-        payload = decode(access_token)
-
-        id = payload["id"]
+        id = payload.get("id")
 
         await redis.setex(f"online:{id}", 60 * 5, dumps(True))
 
@@ -92,8 +100,8 @@ async def active(
 @router.get("/{user_id}/online")
 async def active(user_id: int = Path(...), redis: Redis = Depends(get_redis)):
     try:
-        online_json = await redis.get(f"online:{user_id}")
-        return online_json
+        online = await redis.exists(f"online:{user_id}")
+        return True if online else False
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))

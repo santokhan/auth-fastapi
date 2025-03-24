@@ -3,7 +3,6 @@ from shutil import copyfileobj
 from os import makedirs, path
 import uuid
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from app.api.v1.users.helper.bearer import get_bearer_token
 from db import get_db
 from models import Users
 from fastapi import Depends
@@ -24,9 +23,7 @@ async def upload_profile_image(
     db: Session = Depends(get_db),
 ):
     try:
-        access_token = get_bearer_token(header)
-
-        payload = decode(access_token)
+        payload = decode(header.credentials)
 
         # Generate a new filename and set the path
         filename = generate_filename(image.filename)
