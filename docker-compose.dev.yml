@@ -34,6 +34,7 @@ services:
     environment:
       - DATABASE_URL=postgresql://santokhan:Santo1234@postgres:5432/sanbjur
       - DEBUG=True
+      - ENV=development
     networks:
       - default
 

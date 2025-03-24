@@ -1,6 +1,6 @@
 from fastapi import Depends, HTTPException, APIRouter, Path
 from db import get_db
-from .helper.models import UserOut, UsersOut
+from schemas.user import UserOut, UsersOut
 from sqlalchemy.orm import Session
 from models import Users
 from db import get_redis

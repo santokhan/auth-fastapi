@@ -16,11 +16,9 @@ class UserBase(BaseModel):
 
 class UserCreate(BaseModel):
     username: Optional[str] = Field(default=None)
-    name: Optional[str] = Field(default=None)
     email: Optional[EmailStr] = Field(default=None)
     phone: Optional[str] = Field(default=None)
     password: str = Field(default=None)
-    role: Optional[str] = Field(default=None)
 
     # def validate_phone_number(self):
     #     if self.phone:  # validate only if user inputed
@@ -33,6 +31,13 @@ class UserCreate(BaseModel):
     #         except Exception:
     #             raise ValueError("Invalid phone number format")
     #     return None
+    
+    def validate_username(self):
+        if self.username:
+            if len(self.username) < 3:
+                raise ValueError("Username must be at least 3 characters long.")
+            if not re.search(r"[a-zA-Z0-9]", self.username):
+                raise ValueError("Username must contain letter and number.")
 
     def trim(self):
         return self.phone.strip()[-9:]
@@ -54,7 +59,6 @@ class UserCreate(BaseModel):
 
 
 class UserSignIn(BaseModel):
-    username: Optional[str] = Field(default=None)
     email: Optional[EmailStr] = Field(default=None)
     phone: Optional[str] = Field(default=None)
     password: str = Field(default=None)
@@ -69,7 +73,6 @@ class UserOut(UserBase):
     class Config:
         from_attributes = True
         json_encoders = {datetime: lambda v: v.isoformat()}
-
 
 
 class UsersOut(BaseModel):
@@ -113,10 +116,6 @@ class ResetModel(BaseModel):
     #         except Exception:
     #             raise ValueError("Invalid phone number format")
     #     return None
-
-
-class TokenInputModel(BaseModel):
-    refresh_token: str
 
 
 class VerificationModel(BaseModel):

@@ -9,18 +9,19 @@ from .helper.bearer import get_bearer_token
 from .helper.hash import verify_hash, make_hash
 from db import get_redis
 from aioredis.client import Redis
-from .helper.schemas import AccessTokenResponse, TokenResponse
-from .helper.models import (
+from schemas.token import TokenResponse
+from schemas.user import (
     ForgotModel,
     # ResetModel,
     UserCreate,
-    TokenInputModel,
     UserOut,
     UserSignIn,
 )
 from .helper.token import create_access_token, create_refresh_token, decode
 from sqlalchemy.orm import Session
 from models import Users
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from datetime import datetime
 
 router = APIRouter(tags=["authentication"])
 
@@ -29,14 +30,13 @@ router = APIRouter(tags=["authentication"])
 async def register(user: UserCreate, db: Session = Depends(get_db)) -> UserOut:
     try:
         user.validate_password()
+        user.validate_username()
 
         user = Users(
             username=user.username,
-            name=user.name,
             email=user.email,
             phone=user.phone,
             password=make_hash(user.password),
-            role=user.role,
         )
 
         db.add(user)
@@ -46,6 +46,8 @@ async def register(user: UserCreate, db: Session = Depends(get_db)) -> UserOut:
         return UserOut(
             id=user.id,
             username=user.username,
+            email=user.email,
+            phone=user.phone,
             name=user.name,
             verified=user.verified,
             role=user.role,
@@ -53,16 +55,23 @@ async def register(user: UserCreate, db: Session = Depends(get_db)) -> UserOut:
             created_at=user.created_at,
             updated_at=user.updated_at,
         )
+
+    except IntegrityError as e:
+        db.rollback()  # Rollback transaction to maintain DB consistency
+        raise HTTPException(400, "Username or email already exists.")
+
+    except SQLAlchemyError as e:
+        db.rollback()  # Ensure rollback on any other database-related error
+        raise HTTPException(500, "Database error occurred.")
+
     except Exception as e:
         raise HTTPException(400, str(e))
 
 
 @router.post("/signin")
 async def login(
-    input: UserSignIn,
-    db: Session = Depends(get_db),
-    redis: Redis = Depends(get_redis),
-) -> TokenResponse:
+    input: UserSignIn, db: Session = Depends(get_db), redis: Redis = Depends(get_redis)
+) -> str:
     try:
         query = db.query(Users)
 
@@ -70,8 +79,6 @@ async def login(
             query = query.where(Users.email == input.email)
         elif input.phone:
             query = query.where(Users.phone == input.phone)
-        elif input.username:
-            query = query.where(Users.username == input.username)
         else:
             raise HTTPException(
                 status_code=400, detail="Email, phone, or username is required"
@@ -84,24 +91,22 @@ async def login(
 
         verify_hash(hash=user.password, user_password=input.password)
 
-        payload = {
-            "id": user.id,
-            "username": user.username,
-            "name": user.name,
-            "phone": user.phone,
-            "email": user.email,
-            "verified": user.verified,
-            "role": user.role,
-            "last_login": user.last_login,
-            "created_at": str(user.created_at),
-            "updated_at": str(user.updated_at),
-        }
-        access_token = create_access_token(data=payload)
-        refresh_token = create_refresh_token(data=payload)
+        db.query(Users).where(Users.id == user.id).update(
+            {"last_login": datetime.now()}
+        )
+
+        db.commit()
+        db.refresh(user)
+
+        refresh_token = create_refresh_token(data={"id": user.id})
 
         await redis.setex(f"refresh_token:{user.id}", 60 * 60 * 24 * 7, refresh_token)
 
-        return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+        return refresh_token
+
+    except SQLAlchemyError as e:
+        db.rollback()  # Ensure rollback on any other database-related error
+        raise HTTPException(500, "Database error occurred.")
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -109,19 +114,40 @@ async def login(
 
 @router.post("/token")
 async def token(
-    token: TokenInputModel, redis: Redis = Depends(get_redis)
-) -> AccessTokenResponse:
+    token: str = Body(...),
+    redis: Redis = Depends(get_redis),
+    db: Session = Depends(get_db),
+) -> str:
     try:
-        payload = decode(token.refresh_token)
+        payload = decode(token)
 
         refresh_token = await redis.get(f"refresh_token:{payload['id']}")
 
-        if refresh_token != token.refresh_token:
+        if refresh_token != token:
             raise HTTPException(status_code=400, detail="Invalid refresh token")
 
-        access_token = create_access_token(data=payload)
+        user = db.query(Users).where(Users.id == payload.get("id")).first()
 
-        return AccessTokenResponse(access_token=access_token)
+        access_token = create_access_token(
+            data={
+                "id": user.id,
+                "username": user.username,
+                "name": user.name,
+                "phone": user.phone,
+                "email": user.email,
+                "verified": user.verified,
+                "role": user.role,
+                "last_login": str(user.last_login),
+                "created_at": str(user.created_at),
+                "updated_at": str(user.updated_at),
+            }
+        )
+
+        return access_token
+
+    except SQLAlchemyError as e:
+        db.rollback()  # Ensure rollback on any other database-related error
+        raise HTTPException(500, "Database error occurred.")
 
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid request")
@@ -133,16 +159,11 @@ async def logout(
     redis: Redis = Depends(get_redis),
 ):
     try:
-        access_token = get_bearer_token(header.credentials)
+        access_token = get_bearer_token(header)
 
         payload = decode(access_token)
 
-        key = f"refresh_token:{payload['id']}"
-
-        exists = await redis.exists(key)
-
-        if not exists:
-            raise HTTPException(status_code=400, detail="Invalid refresh token")
+        key = f"refresh_token:{payload.get('id')}"
 
         await redis.delete(key)
 
