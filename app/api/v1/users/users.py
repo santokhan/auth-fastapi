@@ -76,7 +76,7 @@ async def active(
     redis: Redis = Depends(get_redis),
 ):
     try:
-        access_token = get_bearer_token(header.credentials)
+        access_token = get_bearer_token(header)
 
         payload = decode(access_token)
 

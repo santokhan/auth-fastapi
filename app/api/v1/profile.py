@@ -24,7 +24,7 @@ async def upload_profile_image(
     db: Session = Depends(get_db),
 ):
     try:
-        access_token = get_bearer_token(header.credentials)
+        access_token = get_bearer_token(header)
 
         payload = decode(access_token)
 
